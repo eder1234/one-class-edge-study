@@ -117,7 +117,7 @@ A run creates a timestamped folder under `--out_dir`, typically containing:
 
 ## License
 
-Add a `LICENSE` file (MIT/Apache-2.0/etc.) depending on your intended distribution.
+The code is free to use, but the data is not yet available.
 
 ## Contact
 
