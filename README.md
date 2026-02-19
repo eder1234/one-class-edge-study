@@ -2,7 +2,7 @@
 
 This repository contains a single end-to-end script:
 
-- `oneclass_surface_deformation_v2.py` fileciteturn0file0
+- `oneclass_surface_deformation_v2.py` 
 
 It implements a **movement-specific one-class forecasting** pipeline for FaceMoCap sequences using a **template facial mesh topology**, **ROI selection from healthy subjects**, **masked resampling**, and a **masked Temporal Convolutional Network (TCN)** forecaster. The model is trained **only on healthy** sequences and produces **anomaly scores** for both healthy and pathological samples.
 
