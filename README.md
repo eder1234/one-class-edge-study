@@ -12,13 +12,13 @@ It implements a **movement-specific one-class forecasting** pipeline for FaceMoC
 
 Each FaceMoCap recording is a time sequence of 3D markers. After removing 3 head-reference markers (dental support), the remaining 105 markers define the facial point cloud.
 
-For each movement \(m \in \{1,\dots,5\}\), the goal is to detect deviations from normal dynamics using:
+For each movement $$(m \in {1,\dots,5})$$, the goal is to detect deviations from normal dynamics using:
 
 1. a **movement-specific region of interest (ROI)** on the face (markers + edges),
 2. a **forecaster** trained on healthy sequences only,
 3. an **anomaly score** based on forecast errors.
 
-Movements are assumed to be:
+Movements are:
 - M1: soft blink
 - M2: forced blink
 - M3: “o” sound
@@ -55,7 +55,7 @@ Each sample CSV is read as:
 
 These 324 values per frame represent 108 3D points:
 
-- reshape: \((T,324) \rightarrow (T,108,3)\)
+- reshape: $(T,324) \rightarrow (T,108,3)$
 
 Marker indexing:
 - markers `0..2`: head reference (dental support)
@@ -89,7 +89,7 @@ out_dir/
 
 ---
 
-## 4) Methodological pipeline (with equations)
+## 4) Methodological pipeline
 
 ### Stage 0 — Dataset audit (`00_dataset_audit/`)
 
@@ -104,26 +104,22 @@ This is a sanity check; it does not change the dataset.
 
 ### Stage 1 — Head-frame normalization (per frame)
 
-To reduce global head motion effects, each frame is mapped to a **head coordinate system** derived from the 3 head reference markers \((p_0, p_1, p_2)\).
+To reduce global head motion effects, each frame is mapped to a **head coordinate system** derived from the 3 head reference markers $(p_0, p_1, p_2)$.
 
 Let:
 
-- \(p_0\) be the origin,
-- \(x = \frac{p_1 - p_0}{\|p_1 - p_0\|}\),
-- \(z = \frac{x \times (p_2 - p_0)}{\|x \times (p_2 - p_0)\|}\),
-- \(y = z \times x\).
+- $p_0$ be the origin,
+- $x = \frac{p_1 - p_0}{\|p_1 - p_0\|}$,
+- $z = \frac{x \times (p_2 - p_0)}{\|x \times (p_2 - p_0)\|}$,
+- $y = z \times x$.
 
 Then the rotation matrix (columns are axes) is:
 
-```latex
-R = [x \; y \; z] \in \mathbb{R}^{3\times 3}
-```
+$R = [x \; y \; z] \in \mathbb{R}^{3\times 3}$
 
-A facial marker \(q\) (in world coordinates) is mapped to head coordinates by:
+A facial marker $q$ (in world coordinates) is mapped to head coordinates by:
 
-```latex
-q^{(head)} = R^\top (q - p_0)
-```
+$q^{(head)} = R^\top (q - p_0)$
 
 If the head frame is invalid (e.g., degenerate configuration), the frame is marked as missing.
 
@@ -135,36 +131,28 @@ This stage uses **healthy samples only** to select the most movement-relevant ma
 
 #### 2.1 Per-sample per-marker peak displacement
 
-For a marker \(j\) in head coordinates over time, define a rest pose as the mean of its first \(K\) valid frames:
+For a marker $j$ in head coordinates over time, define a rest pose as the mean of its first $K$ valid frames:
 
-```latex
-r_j = \frac{1}{K} \sum_{t \in \mathcal{T}_{j,K}} q_{t,j}^{(head)}
-```
+$r_j = \frac{1}{K} \sum_{t \in \mathcal{T}_{j,K}} q_{t,j}^{(head)}$
 
 Then the displacement time series:
 
-```latex
-d_{t,j} = \| q_{t,j}^{(head)} - r_j \|_2
-```
+$d_{t,j} = \| q_{t,j}^{(head)} - r_j \|_2$
 
 A robust peak displacement is extracted using a high percentile (default 95th):
 
-```latex
-p_j = \mathrm{percentile}_{95}( \{ d_{t,j} : t \in \mathcal{T}_j \} )
-```
+$p_j = \mathrm{percentile}_{95}( \{ d_{t,j} : t \in \mathcal{T}_j \} )$
 
 #### 2.2 Movement-wise marker means and global marker statistics
 
-Let \(m\) denote a movement, and let \(\mu_m(j)\) be the mean peak displacement of marker \(j\) across healthy samples for movement \(m\).
-Let \(\mu_g(j)\) and \(\sigma_g(j)\) be the global mean and standard deviation of marker \(j\) across all movements.
+Let $m$ denote a movement, and let $\mu_m(j)$ be the mean peak displacement of marker $j$ across healthy samples for movement $m$.
+Let $\mu_g(j)$ and $\sigma_g(j)$ be the global mean and standard deviation of marker $j$ across all movements.
 
 #### 2.3 Z-score per movement and marker
 
-```latex
-z(m,j) = \frac{\mu_m(j) - \mu_g(j)}{\sigma_g(j) + \varepsilon}
-```
+$z(m,j) = \frac{\mu_m(j) - \mu_g(j)}{\sigma_g(j) + \varepsilon}$
 
-Markers are selected as the top \(K\) indices with highest \(z(m,j)\) for each movement (default `--K_markers 25`).
+Markers are selected as the top $K$ indices with highest $z(m,j)$ for each movement (default `--K_markers 25`).
 
 Artifacts:
 - `stepA_marker_peaks_long.csv`: long-format peaks table
@@ -176,20 +164,16 @@ Artifacts:
 
 ### Stage 3 — ROI edges from template topology (`03_roi_edges/`)
 
-The file `faces.npy` is a triangular mesh connectivity over the 105 facial markers (indices \(0..104\)). Each triangle \((a,b,c)\) yields three undirected edges:
-\((a,b)\), \((b,c)\), \((c,a)\).
+The file `faces.npy` is a triangular mesh connectivity over the 105 facial markers (indices $0..104$). Each triangle $(a,b,c)$ yields three undirected edges:
+$(a,b)$, $(b,c)$, $(c,a)$.
 
 Edges are deduplicated after sorting endpoints.
 
-```latex
-E = \mathrm{unique}\Big( \{ \{a,b\}, \{b,c\}, \{c,a\} : (a,b,c)\in \mathrm{faces} \} \Big)
-```
+$E = \mathrm{unique}\Big( \{ \{a,b\}, \{b,c\}, \{c,a\} : (a,b,c)\in \mathrm{faces} \} \Big)$
 
-For each movement \(m\), start from the ROI marker set \(S_m\) and keep only edges fully inside the set:
+For each movement $m$, start from the ROI marker set $S_m$ and keep only edges fully inside the set:
 
-```latex
-E_m = \{ (u,v)\in E : u\in S_m \land v\in S_m \}
-```
+$E_m = \{ (u,v)\in E : u\in S_m \land v\in S_m \}$
 
 If `|E_m|` is too small (`--min_roi_edges`, default 40), the marker set is expanded by `--expand_hops` neighbor hops in the mesh adjacency.
 
