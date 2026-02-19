@@ -2,7 +2,7 @@
 
 This repository contains a single end-to-end script:
 
-- `oneclass_surface_deformation_v2.py` 
+- `oneclass_surface_deformation_v2.py` fileciteturn0file0
 
 It implements a **movement-specific one-class forecasting** pipeline for FaceMoCap sequences using a **template facial mesh topology**, **ROI selection from healthy subjects**, **masked resampling**, and a **masked Temporal Convolutional Network (TCN)** forecaster. The model is trained **only on healthy** sequences and produces **anomaly scores** for both healthy and pathological samples.
 
@@ -12,7 +12,7 @@ It implements a **movement-specific one-class forecasting** pipeline for FaceMoC
 
 Each FaceMoCap recording is a time sequence of 3D markers. After removing 3 head-reference markers (dental support), the remaining 105 markers define the facial point cloud.
 
-For each movement $$(m \in {1,\dots,5})$$, the goal is to detect deviations from normal dynamics using:
+For each movement $m \in \{1,\dots,5\}$, the goal is to detect deviations from normal dynamics using:
 
 1. a **movement-specific region of interest (ROI)** on the face (markers + edges),
 2. a **forecaster** trained on healthy sequences only,
@@ -192,44 +192,34 @@ For each sample and movement, a **neutral frame** is selected in the first 10% o
 
 #### 4.1 Edge-length deformation feature (vs neutral)
 
-For an edge \(e=(i,j)\), define neutral length \(d_0(e)\) at the neutral frame \(t_0\):
+For an edge $e=(i,j)$, define neutral length $d_0(e)$ at the neutral frame $t_0$:
 
-```latex
-d_0(e) = \| q_{t_0,i}^{(head)} - q_{t_0,j}^{(head)} \|_2
-```
+$d_0(e) = \| q_{t_0,i}^{(head)} - q_{t_0,j}^{(head)} \|_2$
 
-At time \(t\), define \(d_t(e)\) similarly. The feature can be absolute or relative:
+At time $t$, define $d_t(e)$ similarly. The feature can be absolute or relative:
 
 - absolute (`--edge_feature abs`):
-```latex
-x_t(e) = d_t(e) - d_0(e)
-```
+$x_t(e) = d_t(e) - d_0(e)$
 
 - relative (`--edge_feature rel`, default):
-```latex
-x_t(e) = \frac{d_t(e) - d_0(e)}{d_0(e) + \varepsilon}
-```
+$x_t(e) = \frac{d_t(e) - d_0(e)}{d_0(e) + \varepsilon}$
 
-A binary mask \(m_t(e)\in\{0,1\}\) indicates whether both endpoints are valid at time \(t\) and at \(t_0\).
+A binary mask $m_t(e)\in\{0,1\}$ indicates whether both endpoints are valid at time $t$ and at $t_0$.
 
 #### 4.2 Motion energy per frame
 
 A per-frame “energy” signal is computed from available features:
 
-```latex
-\mathrm{energy}(t) = \frac{\sum_e |x_t(e)|\, m_t(e)}{\max(1, \sum_e m_t(e))}
-```
+$\mathrm{energy}(t) = \frac{\sum_e |x_t(e)|\, m_t(e)}{\max(1, \sum_e m_t(e))}$
 
 #### 4.3 Active-window selection
 
-Frames are selected where \(\mathrm{energy}(t)\) exceeds a fraction of its maximum:
+Frames are selected where $\mathrm{energy}(t)$ exceeds a fraction of its maximum:
 
-```latex
-\mathcal{A} = \{ t : \mathrm{energy}(t) \ge \alpha \cdot \max_t \mathrm{energy}(t) \}
-```
+$\mathcal{A} = \{ t : \mathrm{energy}(t) \ge \alpha \cdot \max_t \mathrm{energy}(t) \}$
 
-The active window \([a,b)\) is chosen around \(\mathcal{A}\) with padding (`--win_pad`) and a minimum length (`--win_min_len`).
-If \(\mathcal{A}\) is empty, a peak-centered window is used.
+The active window $[a,b)$ is chosen around $\mathcal{A}$ with padding (`--win_pad`) and a minimum length (`--win_min_len`).
+If $\mathcal{A}$ is empty, a peak-centered window is used.
 
 ---
 
@@ -237,11 +227,9 @@ If \(\mathcal{A}\) is empty, a peak-centered window is used.
 
 Each sample is resampled to a fixed length `--T_out` (default 50). Resampling is **feature-wise** with linear interpolation, but it is **masked** when interpolation spans large gaps.
 
-Let the original valid indices for feature \(j\) be \(\{t_k\}\). For a target time \(\tau\), linear interpolation uses the nearest bracketing valid indices. The target is considered valid only if:
+Let the original valid indices for feature $j$ be $\{t_k\}$. For a target time $\tau$, linear interpolation uses the nearest bracketing valid indices. The target is considered valid only if:
 
-```latex
-(t_{k+1} - t_k) \le \texttt{max_gap_frames}
-```
+$(t_{k+1} - t_k) \le \texttt{max_gap_frames}$
 
 Otherwise the target point is treated as missing (mask = 0).
 
@@ -251,22 +239,18 @@ This prevents “bridging” long missing segments.
 
 ### Stage 6 — Robust normalization (median/IQR) on healthy train only
 
-For each movement \(m\), a robust scaler is fit on **healthy train samples only**, ignoring masked values.
+For each movement $m$, a robust scaler is fit on **healthy train samples only**, ignoring masked values.
 
-For each feature dimension \(d\):
+For each feature dimension $d$:
 
-```latex
-\mathrm{median}_d = \mathrm{nanmedian}(X_{\cdot,d}), \qquad
-\mathrm{IQR}_d = Q_{75}(X_{\cdot,d}) - Q_{25}(X_{\cdot,d})
-```
+$\mathrm{median}_d = \mathrm{nanmedian}(X_{\cdot,d}), \qquad
+\mathrm{IQR}_d = Q_{75}(X_{\cdot,d}) - Q_{25}(X_{\cdot,d})$
 
 Normalization:
 
-```latex
-\tilde{X}_{t,d} = \frac{X_{t,d} - \mathrm{median}_d}{\mathrm{IQR}_d + \varepsilon}\, M_{t,d}
-```
+$\tilde{X}_{t,d} = \frac{X_{t,d} - \mathrm{median}_d}{\mathrm{IQR}_d + \varepsilon}\, M_{t,d}$
 
-The multiplication by \(M\) keeps missing entries at zero.
+The multiplication by $M$ keeps missing entries at zero.
 
 The scaler statistics are saved as:
 - `04_oneclass_forecasting/Mk/scaler_stats.npz`
@@ -275,39 +259,33 @@ The scaler statistics are saved as:
 
 ### Stage 7 — Masked TCN forecaster (per movement)
 
-A separate forecaster is trained for each movement \(m\).
+A separate forecaster is trained for each movement $m$.
 
 #### 7.1 Model input
 
 At each time, the model receives concatenated channels:
 
-```latex
-\mathrm{input}(t) = [\tilde{X}(t) \; || \; M(t)] \in \mathbb{R}^{2D}
-```
+$\mathrm{input}(t) = [\tilde{X}(t) \; || \; M(t)] \in \mathbb{R}^{2D}$
 
-A 1×1 Conv projects \(2D\to H\), then residual dilated 1D convolutions (dilations \(2^k\)) operate along time, followed by a 1×1 Conv producing predictions \(\hat{X}(t)\in\mathbb{R}^D\).
+A 1×1 Conv projects $2D\to H$, then residual dilated 1D convolutions (dilations $2^k$) operate along time, followed by a 1×1 Conv producing predictions $\hat{X}(t)\in\mathbb{R}^D$.
 
 #### 7.2 Training loss (masked Huber)
 
-The script trains a “next-step” version by ignoring \(t=0\) and computing a masked Huber loss for \(t\ge 1\).
+The script trains a “next-step” version by ignoring $t=0$ and computing a masked Huber loss for $t\ge 1$.
 
 Huber per element:
 
-```latex
-L_\delta(r) =
+$L_\delta(r) =
 \begin{cases}
 \frac{1}{2}r^2, & |r|\le \delta\\
 \delta(|r|-\frac{1}{2}\delta), & |r|>\delta
-\end{cases}
-```
+\end{cases}$
 
 Masked loss:
 
-```latex
-\mathcal{L} =
+$\mathcal{L} =
 \frac{\sum_{t=1}^{T-1}\sum_{d=1}^{D} L_\delta(\hat{X}_{t,d}-X_{t,d})\, M_{t,d}}
-{\max\left(1,\sum_{t=1}^{T-1}\sum_{d=1}^{D} M_{t,d}\right)}
-```
+{\max\left(1,\sum_{t=1}^{T-1}\sum_{d=1}^{D} M_{t,d}\right)}$
 
 Optimization uses AdamW.
 
@@ -317,43 +295,33 @@ Optimization uses AdamW.
 
 For evaluation, the script computes a masked per-timestep MAE:
 
-```latex
-e_t = \frac{\sum_d |\hat{X}_{t,d} - X_{t,d}|\, M_{t,d}}{\max(1,\sum_d M_{t,d})}
-\qquad (t=1,\dots,T-1)
-```
+$e_t = \frac{\sum_d |\hat{X}_{t,d} - X_{t,d}|\, M_{t,d}}{\max(1,\sum_d M_{t,d})}
+\qquad (t=1,\dots,T-1)$
 
-It also computes a motion-derived weight \(w_t\in[0,1]\) from the resampled energy signal, downweighted by per-frame availability:
+It also computes a motion-derived weight $w_t\in[0,1]$ from the resampled energy signal, downweighted by per-frame availability:
 
-```latex
-w_t \propto \mathrm{energy}(t)\times \frac{\sum_d M_{t,d}}{D}, \quad \text{then normalized to } [0,1]
-```
+$w_t \propto \mathrm{energy}(t)\times \frac{\sum_d M_{t,d}}{D}, \quad \text{then normalized to } [0,1]$
 
 Final anomaly score (weighted mean error):
 
-```latex
-s = \frac{\sum_{t=1}^{T-1} w_t\, e_t}{\max(\varepsilon, \sum_{t=1}^{T-1} w_t)}
-```
+$s = \frac{\sum_{t=1}^{T-1} w_t\, e_t}{\max(\varepsilon, \sum_{t=1}^{T-1} w_t)}$
 
 A secondary score is also computed (peak error):
-```latex
-s_{\max} = \max_t e_t
-```
+$s_{\max} = \max_t e_t$
 
 ---
 
 ### Stage 9 — Threshold selection (validation percentile, healthy-only)
 
-For each movement \(m\), a subject-level split is computed on **healthy participant IDs**:
+For each movement $m$, a subject-level split is computed on **healthy participant IDs**:
 - train / val / test (defaults: 0.7 / 0.15 / 0.15)
 
 The threshold is set to the `--thr_percentile` percentile (default 95th) of the **validation healthy** weighted scores:
 
-```latex
-\tau = \mathrm{percentile}_{p}( \{ s_i : i \in \text{val healthy} \} )
-```
+$\tau = \mathrm{percentile}_{p}( \{ s_i : i \in \text{val healthy} \} )$
 
 Prediction:
-- anomalous if \(s > \tau\)
+- anomalous if $s > \tau$
 
 Per-movement artifacts:
 - `scores.csv`
@@ -430,15 +398,10 @@ These are properties of the current code (not future work):
 
 ## 8) Citation / attribution
 
-If you use this pipeline in academic writing, you likely want to cite:
-- the FaceMoCap dataset (your internal reference)
-- masked forecasting / one-class anomaly detection literature
-- temporal convolutional networks (TCN)
-
-This README intentionally does not include external citations; add them to match your target venue.
+If you use this pipeline in academic writing, you likely want to cite...
 
 ---
 
 ## 9) License
 
-Add your preferred license (e.g., MIT, Apache-2.0) in `LICENSE`. If your data are restricted (clinical context), clarify usage restrictions in a `DATA.md`.
+...
